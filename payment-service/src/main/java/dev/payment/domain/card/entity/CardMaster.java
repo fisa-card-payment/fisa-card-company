@@ -44,6 +44,10 @@ public class CardMaster {
         return "CREDIT".equals(this.cardType);
     }
 
+    public boolean isCheckCard() {
+        return "CHECK".equals(this.cardType);
+    }
+
     public long getAvailableLimit() {
         return this.creditLimit - this.usedAmount;
     }

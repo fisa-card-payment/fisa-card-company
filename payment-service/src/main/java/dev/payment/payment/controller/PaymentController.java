@@ -1,7 +1,10 @@
 package dev.payment.payment.controller;
 
+import dev.payment.payment.dto.CheckPaymentRequest;
+import dev.payment.payment.dto.CheckPaymentResponse;
 import dev.payment.payment.dto.CreditPaymentRequest;
 import dev.payment.payment.dto.CreditPaymentResponse;
+import dev.payment.payment.service.CheckPaymentService;
 import dev.payment.payment.service.CreditPaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PaymentController {
 
     private final CreditPaymentService creditPaymentService;
+    private final CheckPaymentService checkPaymentService;
 
     @Operation(
             summary = "신용카드 결제 승인",
@@ -42,5 +46,24 @@ public class PaymentController {
     public ResponseEntity<CreditPaymentResponse> creditPayment(
             @Valid @RequestBody CreditPaymentRequest request) {
         return ResponseEntity.ok(creditPaymentService.processCredit(request));
+    }
+
+    @Operation(
+            summary = "체크카드 결제 승인",
+            description = "VAN으로부터 전달된 체크카드 결제 요청을 처리합니다. " +
+                          "은행 서버에 잔액 확인 및 출금 요청 후 원장에 기록합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "결제 승인/거절 결과",
+                    content = @Content(schema = @Schema(implementation = CheckPaymentResponse.class))),
+            @ApiResponse(responseCode = "400", description = "잔액 부족 / 카드 상태 오류 / 입력값 오류"),
+            @ApiResponse(responseCode = "404", description = "카드 정보 없음"),
+            @ApiResponse(responseCode = "409", description = "중복 RRN"),
+            @ApiResponse(responseCode = "500", description = "은행 서버 통신 실패 / 원장 기록 실패")
+    })
+    @PostMapping("/check")
+    public ResponseEntity<CheckPaymentResponse> checkPayment(
+            @Valid @RequestBody CheckPaymentRequest request) {
+        return ResponseEntity.ok(checkPaymentService.processCheck(request));
     }
 }
