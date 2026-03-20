@@ -17,6 +17,9 @@ spring:
       password: ${DB_PASSWORD:1234}
       driver-class-name: com.mysql.cj.jdbc.Driver
 
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+
   jpa:
     hibernate:
       ddl-auto: validate
@@ -24,4 +27,4 @@ spring:
 
 # 정산 성공 시 입금 요청을 보낼 은행 서버 주소
 service:
-  bank-url: http://bank-server:8083
+  bank-url: http://banking-service:8083

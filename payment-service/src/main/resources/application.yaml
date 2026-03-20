@@ -25,4 +25,4 @@ spring:
 
 # 은행 서버(서버 3) 잔액 조회를 위한 통신 주소
 service:
-  bank-url: http://bank-server:8083
+  bank-url: http://banking-service:8083
