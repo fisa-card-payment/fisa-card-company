@@ -8,5 +8,6 @@ CREATE TABLE card_ledger (
                              amount          BIGINT NOT NULL,
                              approval_code   VARCHAR(6),
                              status          VARCHAR(10),
+                             settlement_status    VARCHAR(10),
                              approved_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
