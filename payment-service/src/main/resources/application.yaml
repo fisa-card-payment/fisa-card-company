@@ -1,0 +1,28 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: payment-service
+
+  # 멀티 데이터소스 설정을 위해 별도 키값 정의
+  datasource:
+    source: # DB 1: 원장 Source
+      jdbc-url: ${DB_SOURCE_URL:jdbc:mysql://localhost:3311/ledger_source}
+      username: root
+      password: ${DB_PASSWORD:1234}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+    shared: # DB 2: 개인정보/마스터
+      jdbc-url: ${DB_SHARED_URL:jdbc:mysql://localhost:3312/shared_master}
+      username: root
+      password: ${DB_PASSWORD:1234}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+# 은행 서버(서버 3) 잔액 조회를 위한 통신 주소
+service:
+  bank-url: http://bank-server:8083

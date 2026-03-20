@@ -1,0 +1,19 @@
+# env
+.env
+*.env
+
+# IDE
+.idea/
+.vscode/
+
+# build
+build/
+.gradle/
+out/
+
+# logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

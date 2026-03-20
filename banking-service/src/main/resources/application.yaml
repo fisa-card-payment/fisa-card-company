@@ -1,0 +1,21 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: banking-service
+
+  # 단일 DB
+  datasource:
+    url: ${DB_BANK_URL:jdbc:mysql://localhost:3314/bank_system}
+    username: root
+    password: ${DB_PASSWORD:1234}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true

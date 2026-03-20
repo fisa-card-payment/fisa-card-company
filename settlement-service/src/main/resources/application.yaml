@@ -1,0 +1,27 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: settlement-service
+
+  datasource:
+    replica: # DB 3: 원장 Replica
+      jdbc-url: ${DB_REPLICA_URL:jdbc:mysql://localhost:3313/ledger_replica}
+      username: root
+      password: ${DB_PASSWORD:1234}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+    shared: # DB 2: 개인정보/마스터
+      jdbc-url: ${DB_SHARED_URL:jdbc:mysql://localhost:3312/shared_master}
+      username: root
+      password: ${DB_PASSWORD:1234}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+# 정산 성공 시 입금 요청을 보낼 은행 서버 주소
+service:
+  bank-url: http://bank-server:8083

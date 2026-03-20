@@ -1,0 +1,113 @@
+services:
+  # [DB 1] 원장 Source DB
+  card-source-db:
+    image: mysql:8.0
+    container_name: card-source-db
+    environment:
+      MYSQL_DATABASE: ledger_source
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      - "${MYSQL_PORT_SOURCE}:3306"
+    volumes:
+      - ./init-db/source_db.sql:/docker-entrypoint-initdb.d/source_db.sql
+    networks:
+      - card-net
+
+  # [DB 2] 개인정보 및 마스터 공유 DB
+  card-shared-db:
+    image: mysql:8.0
+    container_name: card-shared-db
+    environment:
+      MYSQL_DATABASE: shared_master
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      - "${MYSQL_PORT_SHARED}:3306"
+    volumes:
+      - ./init-db/shard_db.sql:/docker-entrypoint-initdb.d/shared_db.sql # 이미지의 shard_db.sql 반영
+    networks:
+      - card-net
+
+  # [DB 3] 원장 Replica DB
+  card-replica-db:
+    image: mysql:8.0
+    container_name: card-replica-db
+    environment:
+      MYSQL_DATABASE: ledger_replica
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      - "${MYSQL_PORT_REPLICA}:3306"
+    volumes:
+      - ./init-db/replica_db.sql:/docker-entrypoint-initdb.d/replica_db.sql
+    networks:
+      - card-net
+
+  # [DB 4] 은행 계좌/이체 DB
+  bank-db:
+    image: mysql:8.0
+    container_name: bank-db
+    environment:
+      MYSQL_DATABASE: bank_system
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      - "${MYSQL_PORT_BANK}:3306"
+    volumes:
+      - ./init-db/bank_db.sql:/docker-entrypoint-initdb.d/bank_db.sql
+    networks:
+      - card-net
+
+  # --------------------------------------------------
+  # 서버들 (App Servers) - 폴더명 일치화 완료
+  # --------------------------------------------------
+
+  # 서버 1: 결제 승인
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    environment:
+      - DB_SOURCE_URL=jdbc:mysql://card-source-db:3306/ledger_source
+      - DB_SHARED_URL=jdbc:mysql://card-shared-db:3306/shared_master
+    depends_on:
+      - card-source-db
+      - card-shared-db
+    networks:
+      - card-net
+
+  # 서버 2: 매입 정산 (사용자님 담당)
+  settlement-service:
+    build: ./settlement-service
+    container_name: settlement-service
+    environment:
+      - DB_REPLICA_URL=jdbc:mysql://card-replica-db:3306/ledger_replica
+      - DB_SHARED_URL=jdbc:mysql://card-shared-db:3306/shared_master
+    depends_on:
+      - card-replica-db
+      - card-shared-db
+    networks:
+      - card-net
+
+  # 서버 3: 은행 서비스
+  banking-service:
+    build: ./banking-service
+    container_name: banking-service
+    environment:
+      - DB_BANK_URL=jdbc:mysql://bank-db:3306/bank_system
+    depends_on:
+      - bank-db
+    networks:
+      - card-net
+
+  # Entry: API Gateway
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "${GW_PORT}:80"
+    depends_on:
+      - payment-service
+      - settlement-service
+    networks:
+      - card-net
+
+networks:
+  card-net:
+    driver: bridge
