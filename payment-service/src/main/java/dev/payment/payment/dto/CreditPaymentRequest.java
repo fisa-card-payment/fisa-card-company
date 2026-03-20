@@ -14,12 +14,12 @@ import lombok.NoArgsConstructor;
 @Schema(description = "신용카드 결제 요청")
 public class CreditPaymentRequest {
 
-    @Schema(description = "거래 참조번호 (VAN 발급 12자리 숫자)", example = "202412010001")
+    @Schema(description = "거래 참조번호 (VAN 발급 12자리 숫자)", example = "202503200001")
     @NotBlank(message = "RRN은 필수입니다.")
     @Pattern(regexp = "\\d{12}", message = "RRN은 12자리 숫자여야 합니다.")
     private String rrn;
 
-    @Schema(description = "카드번호 (16자리 숫자, 하이픈 포함 가능)", example = "1234-5678-9012-3456")
+    @Schema(description = "카드번호 (16자리 숫자, 하이픈 포함 가능)", example = "1234-5678-9012-0001")
     @NotBlank(message = "카드번호는 필수입니다.")
     @Pattern(
             regexp = "\\d{4}-\\d{4}-\\d{4}-\\d{4}|\\d{16}",
