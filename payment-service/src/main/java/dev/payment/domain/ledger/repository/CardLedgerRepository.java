@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CardLedgerRepository extends JpaRepository<CardLedger, Long> {
 
-    boolean existsByRrn(String rrn);
+    boolean existsByStan(String stan);
 }
