@@ -28,7 +28,7 @@ services:
     ports:
       - "${MYSQL_PORT_SHARED}:3306"
     volumes:
-      - ./init-db/shard_db.sql:/docker-entrypoint-initdb.d/shared_db.sql
+      - ./init-db/shared_db.sql:/docker-entrypoint-initdb.d/shared_db.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       interval: 10s
