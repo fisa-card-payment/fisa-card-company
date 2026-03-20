@@ -28,7 +28,7 @@ services:
     ports:
       - "${MYSQL_PORT_SHARED}:3306"
     volumes:
-      - ./init-db/shard_db.sql:/docker-entrypoint-initdb.d/shared_db.sql # 이미지의 shard_db.sql 반영
+      - ./init-db/shard_db.sql:/docker-entrypoint-initdb.d/shared_db.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       interval: 10s
@@ -76,7 +76,7 @@ services:
       - card-net
 
   # --------------------------------------------------
-  # 서버들 (App Servers) - 폴더명 일치화 완료
+  # 서버들 (App Servers)
   # --------------------------------------------------
 
   # 서버 1: 결제 승인
@@ -95,7 +95,7 @@ services:
     networks:
       - card-net
 
-  # 서버 2: 매입 정산 (사용자님 담당)
+  # 서버 2: 매입 정산
   settlement-service:
     build: ./settlement-service
     container_name: settlement-service
