@@ -15,7 +15,7 @@ public enum ErrorCode {
     INSUFFICIENT_CREDIT_LIMIT(HttpStatus.BAD_REQUEST, "PAY-004", "신용카드 한도가 부족합니다."),
 
     // 중복 처리
-    DUPLICATE_RRN(HttpStatus.CONFLICT, "PAY-005", "이미 처리된 거래 참조번호(RRN)입니다."),
+    DUPLICATE_STAN(HttpStatus.CONFLICT, "PAY-005", "이미 처리된 거래입니다."),
 
     // 원장 기록
     LEDGER_WRITE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "PAY-006", "원장 기록 중 오류가 발생했습니다.");

@@ -30,6 +30,9 @@ public class CardLedger {
     @Column(name = "rrn", length = 12, unique = true, nullable = false)
     private String rrn;
 
+    @Column(name = "stan", length = 6, unique = true, nullable = false)
+    private String stan;
+
     @Column(name = "card_number", length = 19, nullable = false)
     private String cardNumber;
 

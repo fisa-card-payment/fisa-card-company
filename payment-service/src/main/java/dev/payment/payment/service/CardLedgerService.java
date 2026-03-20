@@ -15,22 +15,24 @@ public class CardLedgerService {
     private final CardLedgerRepository cardLedgerRepository;
 
     /**
-     * RRN 중복 확인 (멱등성 보장)
-     * DB에 UNIQUE 제약이 있으나 애플리케이션 레벨에서 선제 차단
+     * STAN 중복 확인 (멱등성 보장)
+     * STAN은 VAN이 발급하는 거래 추적 번호 - 동일 STAN 재전송 차단
      */
     @Transactional(readOnly = true)
-    public boolean existsByRrn(String rrn) {
-        return cardLedgerRepository.existsByRrn(rrn);
+    public boolean existsByStan(String stan) {
+        return cardLedgerRepository.existsByStan(stan);
     }
 
     /**
      * 원장 기록 (sourceTransactionManager - @Primary이므로 생략 가능하나 명시)
+     * RRN은 카드사가 생성하여 전달
      */
     @Transactional
-    public CardLedger saveLedger(String rrn, String cardNumber, String merchantId,
-                                 long amount, String status, String approvalCode) {
+    public CardLedger saveLedger(String rrn, String stan, String cardNumber,
+                                 String merchantId, long amount, String status, String approvalCode) {
         CardLedger ledger = CardLedger.builder()
                 .rrn(rrn)
+                .stan(stan)
                 .cardNumber(cardNumber)
                 .merchantId(merchantId)
                 .amount(amount)
