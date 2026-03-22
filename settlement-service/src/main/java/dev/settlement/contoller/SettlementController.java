@@ -1,7 +1,7 @@
 package dev.settlement.contoller;
 
-import dev.settlement.dto.VanSettleDto;
-import dev.settlement.service.SettlementService;
+import dev.settlement.dto.VanCsvReceiveResult;
+import dev.settlement.service.VanCsvReceiveService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -11,8 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashMap;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Slf4j
@@ -21,58 +20,54 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SettlementController {
 
-    private final SettlementService settlementService;
+    private final VanCsvReceiveService vanCsvReceiveService;
 
     /**
-     * VAN사에서 전송한 정산용 CSV 파일을 수신하고 파싱·처리를 시작합니다.
-     *
-     * <p>요청 형식: POST /api/settlement/upload (multipart/form-data)
-     * <p>파라미터: file - .csv 확장자 파일
-     *
-     * @param file 업로드된 CSV 파일
-     * @return 수신 성공 응답 JSON
+     * VAN → API Gateway: 정산용 CSV 수신 후 임시 저장 및 shared DB 스테이징.
+     * <p>
+     * TODO: 후속 단계(원장 비교 실패/정산 완료) 알림은 SSE로 VAN에 전달.
      */
     @PostMapping("/upload")
-    public ResponseEntity<Map<String, String>> uploadCsv(
+    public ResponseEntity<Map<String, Object>> uploadCsv(
             @RequestParam("file") MultipartFile file) {
 
-        // 1. 파일 비어있는지 검증
         if (file.isEmpty()) {
-            Map<String, String> error = new HashMap<>();
-            error.put("status", "FAIL");
-            error.put("message", "파일이 비어있습니다.");
-            return ResponseEntity.badRequest().body(error);
+            return badRequest("파일이 비어있습니다.");
         }
 
-        // 2. 확장자 .csv 검증
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null || !originalFilename.toLowerCase().endsWith(".csv")) {
-            Map<String, String> error = new HashMap<>();
-            error.put("status", "FAIL");
-            error.put("message", "CSV 파일만 업로드 가능합니다.");
-            return ResponseEntity.badRequest().body(error);
+            return badRequest("CSV 파일만 업로드 가능합니다.");
         }
 
         log.info("[정산업로드] CSV 파일 수신: {}", originalFilename);
 
-//        // 3. CSV 파싱 및 정산 처리
-//        try {
-//            List<VanSettleDto> settlementList = settlementService.parseAndProcess(file);
-//            log.info("[정산업로드] 처리 완료 - 파일명: {}, 건수: {}", originalFilename, settlementList.size());
-//        } catch (Exception e) {
-//            log.error("[정산업로드] CSV 처리 중 오류 발생: {}", e.getMessage(), e);
-//            Map<String, String> error = new HashMap<>();
-//            error.put("status", "FAIL");
-//            error.put("message", "CSV 파일 처리 중 오류가 발생했습니다: " + e.getMessage());
-//            return ResponseEntity.internalServerError().body(error);
-//        }
+        try {
+            VanCsvReceiveResult result = vanCsvReceiveService.receiveAndStage(file, originalFilename);
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("status", "SUCCESS");
+            body.put("message", "CSV 수신 및 스테이징이 완료되었습니다.");
+            body.put("fileId", result.fileId());
+            body.put("fileName", result.fileName());
+            body.put("rowCount", result.rowCount());
+            body.put("storedPath", result.storedPath());
+            return ResponseEntity.ok(body);
+        } catch (IllegalArgumentException e) {
+            log.warn("[정산업로드] 요청 오류: {}", e.getMessage());
+            return badRequest(e.getMessage());
+        } catch (Exception e) {
+            log.error("[정산업로드] 처리 실패: {}", e.getMessage(), e);
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("status", "FAIL");
+            error.put("message", "CSV 처리 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(error);
+        }
+    }
 
-        // 4. 성공 응답 반환
-        Map<String, String> response = new HashMap<>();
-        response.put("status", "SUCCESS");
-        response.put("message", "CSV 파일 수신 및 정산 처리가 시작되었습니다.");
-        response.put("fileName", originalFilename);
-
-        return ResponseEntity.ok(response);
+    private static ResponseEntity<Map<String, Object>> badRequest(String message) {
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("status", "FAIL");
+        error.put("message", message);
+        return ResponseEntity.badRequest().body(error);
     }
 }

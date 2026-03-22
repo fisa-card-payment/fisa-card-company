@@ -28,3 +28,8 @@ spring:
 # 정산 성공 시 입금 요청을 보낼 은행 서버 주소
 service:
   bank-url: http://banking-service:8083
+
+# VAN CSV 수신 시 임시 저장 경로
+settlement:
+  van-upload:
+    temp-dir: ${SETTLEMENT_VAN_TEMP_DIR:./var/van-settlement-uploads}

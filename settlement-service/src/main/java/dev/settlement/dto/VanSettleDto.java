@@ -11,10 +11,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class VanSettleDto {
 
-    private String rrn;           // 거래 참조 번호 (RRN)
-    private String stan;          // 시스템 추적 감사 번호 (STAN)
-    private Long amount;          // 거래 금액
-    private String approvalCode;  // 승인 코드
+    private String rrn;
+    private String stan;
+    private String cardNumber;
+    private Long amount;
+    private String merchantId;
+    private String cardCompany;
+    private String approvalCode;
+    /** CSV 원문 일시 (ISO-8601 문자열) */
+    private String createdAtRaw;
 
     /**
      * CSV 한 줄(row)을 파싱하여 VanSettleDto 객체로 변환합니다.
@@ -26,11 +31,18 @@ public class VanSettleDto {
      */
     public static VanSettleDto fromCsvRow(String csvRow) {
         String[] fields = csvRow.split(",", -1);
+        if (fields.length < 8) {
+            throw new IllegalArgumentException("CSV 컬럼은 8개여야 합니다. 실제=" + fields.length);
+        }
         return VanSettleDto.builder()
                 .rrn(fields[0].trim())
                 .stan(fields[1].trim())
-                .amount(Long.parseLong(fields[2].trim()))
-                .approvalCode(fields[3].trim())
+                .cardNumber(fields[2].trim())
+                .amount(Long.parseLong(fields[3].trim()))
+                .merchantId(fields[4].trim())
+                .cardCompany(fields[5].trim())
+                .approvalCode(fields[6].trim())
+                .createdAtRaw(fields[7].trim())
                 .build();
     }
 }
