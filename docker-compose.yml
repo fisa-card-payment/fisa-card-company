@@ -103,6 +103,8 @@ services:
       - DB_REPLICA_URL=jdbc:mysql://card-replica-db:3306/ledger_replica
       - DB_SHARED_URL=jdbc:mysql://card-shared-db:3306/shared_master
       - DB_PASSWORD=${DB_PASSWORD}
+      #TODO : VAN의 URL로 수정해야함
+      - VAN_SSE_BASE_URL=${VAN_SSE_BASE_URL:-http://host.docker.internal:8090}
     depends_on:
       card-replica-db:
         condition: service_healthy

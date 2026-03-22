@@ -7,23 +7,18 @@ spring:
 
   datasource:
     replica: # DB 3: 원장 Replica
-      jdbc-url: ${DB_REPLICA_URL:jdbc:mysql://localhost:3313/ledger_replica}
+      url: ${DB_REPLICA_URL:jdbc:mysql://localhost:3313/ledger_replica}
       username: root
       password: ${DB_PASSWORD:1234}
       driver-class-name: com.mysql.cj.jdbc.Driver
     shared: # DB 2: 개인정보/마스터
-      jdbc-url: ${DB_SHARED_URL:jdbc:mysql://localhost:3312/shared_master}
+      url: ${DB_SHARED_URL:jdbc:mysql://localhost:3312/shared_master}
       username: root
       password: ${DB_PASSWORD:1234}
       driver-class-name: com.mysql.cj.jdbc.Driver
 
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: true
 
 # 정산 성공 시 입금 요청을 보낼 은행 서버 주소
 service:
@@ -33,3 +28,10 @@ service:
 settlement:
   van-upload:
     temp-dir: ${SETTLEMENT_VAN_TEMP_DIR:./var/van-settlement-uploads}
+  bank:
+    # bank_db.sql: 우리카드 정산 출금 계좌, VAN 수수료 입금 계좌
+    card-company-account: ${SETTLEMENT_CARD_COMPANY_ACCOUNT:9000-0001}
+    van-account: ${SETTLEMENT_VAN_ACCOUNT:9000-0002}
+  van-sse:
+    enabled: ${VAN_SSE_ENABLED:true}
+    base-url: ${VAN_SSE_BASE_URL:http://localhost:8090}

@@ -1,8 +1,7 @@
 package dev.settlement.contoller;
 
-import dev.settlement.dto.ReconcileOutcome;
 import dev.settlement.dto.VanCsvReceiveResult;
-import dev.settlement.service.LedgerReconciliationService;
+import dev.settlement.service.SettlementAsyncProcessor;
 import dev.settlement.service.VanCsvReceiveService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @Slf4j
 @RestController
@@ -22,17 +22,27 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SettlementController {
 
+    private static final Pattern BATCH_DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+
     private final VanCsvReceiveService vanCsvReceiveService;
-    private final LedgerReconciliationService ledgerReconciliationService;
+    private final SettlementAsyncProcessor settlementAsyncProcessor;
 
     /**
-     * VAN → API Gateway: 정산용 CSV 수신 후 임시 저장 및 shared DB 스테이징.
-     * <p>
-     * TODO: 후속 단계(원장 비교 실패/정산 완료) 알림은 SSE로 VAN에 전달.
+     * VAN → 카드사: CSV 수신·스테이징 후 즉시 응답.
+     * 원장 대사·입금·VAN 알림(SSE 트리거)은 비동기로 진행됩니다.
      */
     @PostMapping("/upload")
     public ResponseEntity<Map<String, Object>> uploadCsv(
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "batchDate", required = false) String batchDate) {
+
+        String batchDateNorm = batchDate == null ? null : batchDate.trim();
+        if (batchDateNorm != null && !batchDateNorm.isEmpty() && !BATCH_DATE.matcher(batchDateNorm).matches()) {
+            return badRequest("batchDate는 yyyy-MM-dd 형식이어야 합니다.");
+        }
+        if (batchDateNorm != null && batchDateNorm.isEmpty()) {
+            batchDateNorm = null;
+        }
 
         if (file.isEmpty()) {
             return badRequest("파일이 비어있습니다.");
@@ -43,29 +53,22 @@ public class SettlementController {
             return badRequest("CSV 파일만 업로드 가능합니다.");
         }
 
-        log.info("[정산업로드] CSV 파일 수신: {}", originalFilename);
+        log.info("[정산업로드] CSV 수신: {} batchDate={}", originalFilename, batchDateNorm);
 
         try {
             VanCsvReceiveResult result = vanCsvReceiveService.receiveAndStage(file, originalFilename);
-            ReconcileOutcome reconcile = ledgerReconciliationService.reconcile(result.fileId());
+            settlementAsyncProcessor.continueAfterStaging(result.fileId(), batchDateNorm);
 
             Map<String, Object> body = new LinkedHashMap<>();
-            body.put("status", "SUCCESS");
-            body.put("message", "CSV 수신·스테이징·원장 대사까지 완료되었습니다.");
-            body.put("fileId", result.fileId());
             body.put("fileName", result.fileName());
-            body.put("rowCount", result.rowCount());
-            body.put("storedPath", result.storedPath());
-            body.put("compareStatus", reconcile.fileStatus());
-            if (reconcile.message() != null) {
-                body.put("compareDetail", reconcile.message());
-            }
+            body.put("message", "CSV 파일 수신 및 정산 처리가 시작되었습니다.");
+            body.put("status", "SUCCESS");
             return ResponseEntity.ok(body);
         } catch (IllegalArgumentException e) {
             log.warn("[정산업로드] 요청 오류: {}", e.getMessage());
             return badRequest(e.getMessage());
         } catch (Exception e) {
-            log.error("[정산업로드] 처리 실패: {}", e.getMessage(), e);
+            log.error("[정산업로드] 스테이징 실패: {}", e.getMessage(), e);
             Map<String, Object> error = new LinkedHashMap<>();
             error.put("status", "FAIL");
             error.put("message", "CSV 처리 중 오류가 발생했습니다: " + e.getMessage());
