@@ -1,0 +1,13 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: eureka-server
+
+eureka:
+  client:
+    register-with-eureka: false   # 자기 자신은 등록 안 함
+    fetch-registry: false         # 자기 자신은 조회 안 함
+  server:
+    wait-time-in-ms-when-sync-empty: 0
