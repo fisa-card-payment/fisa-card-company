@@ -23,7 +23,7 @@ services:
     ports:
       - "${MYSQL_PORT_SHARED}:3306"
     volumes:
-      - ../init-db/shard_db.sql:/docker-entrypoint-initdb.d/shared_db.sql # 이미지의 shard_db.sql 반영
+      - ../init-db/shared_db.sql:/docker-entrypoint-initdb.d/shared_db.sql
     networks:
       - card-net
 
