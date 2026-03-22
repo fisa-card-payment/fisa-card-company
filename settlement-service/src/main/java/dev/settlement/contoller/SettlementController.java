@@ -1,6 +1,8 @@
 package dev.settlement.contoller;
 
+import dev.settlement.dto.ReconcileOutcome;
 import dev.settlement.dto.VanCsvReceiveResult;
+import dev.settlement.service.LedgerReconciliationService;
 import dev.settlement.service.VanCsvReceiveService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ import java.util.Map;
 public class SettlementController {
 
     private final VanCsvReceiveService vanCsvReceiveService;
+    private final LedgerReconciliationService ledgerReconciliationService;
 
     /**
      * VAN → API Gateway: 정산용 CSV 수신 후 임시 저장 및 shared DB 스테이징.
@@ -44,13 +47,19 @@ public class SettlementController {
 
         try {
             VanCsvReceiveResult result = vanCsvReceiveService.receiveAndStage(file, originalFilename);
+            ReconcileOutcome reconcile = ledgerReconciliationService.reconcile(result.fileId());
+
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("status", "SUCCESS");
-            body.put("message", "CSV 수신 및 스테이징이 완료되었습니다.");
+            body.put("message", "CSV 수신·스테이징·원장 대사까지 완료되었습니다.");
             body.put("fileId", result.fileId());
             body.put("fileName", result.fileName());
             body.put("rowCount", result.rowCount());
             body.put("storedPath", result.storedPath());
+            body.put("compareStatus", reconcile.fileStatus());
+            if (reconcile.message() != null) {
+                body.put("compareDetail", reconcile.message());
+            }
             return ResponseEntity.ok(body);
         } catch (IllegalArgumentException e) {
             log.warn("[정산업로드] 요청 오류: {}", e.getMessage());

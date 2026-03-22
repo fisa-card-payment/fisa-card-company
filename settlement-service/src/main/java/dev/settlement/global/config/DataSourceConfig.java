@@ -37,6 +37,11 @@ public class DataSourceConfig {
         return new JdbcTemplate(sharedDataSource);
     }
 
+    @Bean(name = "replicaJdbcTemplate")
+    public JdbcTemplate replicaJdbcTemplate(@Qualifier("replicaDataSource") DataSource replicaDataSource) {
+        return new JdbcTemplate(replicaDataSource);
+    }
+
     @Bean
     @Primary
     public PlatformTransactionManager replicaTransactionManager(@Qualifier("replicaDataSource") DataSource dataSource) {
