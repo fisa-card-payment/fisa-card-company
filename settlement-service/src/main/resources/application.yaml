@@ -7,12 +7,12 @@ spring:
 
   datasource:
     replica: # DB 3: 원장 Replica
-      url: ${DB_REPLICA_URL:jdbc:mysql://localhost:3313/ledger_replica}
+      jdbc-url: "${DB_REPLICA_URL:jdbc:mysql://localhost:3313/ledger_replica?allowPublicKeyRetrieval=true&useSSL=false}"
       username: root
       password: ${DB_PASSWORD:1234}
       driver-class-name: com.mysql.cj.jdbc.Driver
     shared: # DB 2: 개인정보/마스터
-      url: ${DB_SHARED_URL:jdbc:mysql://localhost:3312/shared_master}
+      jdbc-url: "${DB_SHARED_URL:jdbc:mysql://localhost:3312/shared_master?allowPublicKeyRetrieval=true&useSSL=false}"
       username: root
       password: ${DB_PASSWORD:1234}
       driver-class-name: com.mysql.cj.jdbc.Driver
