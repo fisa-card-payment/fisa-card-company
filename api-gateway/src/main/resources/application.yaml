@@ -17,7 +17,6 @@ spring:
             - id: settlement-service
               uri: lb://settlement-service
               predicates:
-                - Path=/api/batch/**
                 - Path=/api/settlement/**
 
 eureka:

@@ -36,7 +36,7 @@ public class SettlementController {
      */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> uploadCsv(
-            @RequestPart("file") MultipartFile file,
+            @RequestParam("file") MultipartFile file,
             @RequestParam("batchDate") String batchDate) {
 
         String batchDateNorm = batchDate.trim();

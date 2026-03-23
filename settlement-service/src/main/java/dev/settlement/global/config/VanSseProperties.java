@@ -16,7 +16,5 @@ public class VanSseProperties {
 
     private boolean enabled = true;
 
-
-    //TODO : VAN쪽 url 수정
-    private String baseUrl = "http://localhost:8090";
+    private String baseUrl;
 }

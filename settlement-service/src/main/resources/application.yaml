@@ -33,8 +33,8 @@ settlement:
     card-company-account: ${SETTLEMENT_CARD_COMPANY_ACCOUNT:9000-0001}
     van-account: ${SETTLEMENT_VAN_ACCOUNT:9000-0002}
   van-sse:
-    enabled: ${VAN_SSE_ENABLED:true}
-    base-url: ${VAN_SSE_BASE_URL:http://localhost:8090}
+    enabled: true
+    base-url: http://host.docker.internal:8081
 
 # 유레카 설정
 eureka:
