@@ -1,9 +1,18 @@
 package dev.settlement;
 
+import dev.settlement.global.config.SettlementBankProperties;
+import dev.settlement.global.config.VanSseProperties;
+import dev.settlement.global.config.VanUploadProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 @SpringBootApplication
+@EnableAsync
+@EnableDiscoveryClient
+@EnableConfigurationProperties({VanUploadProperties.class, SettlementBankProperties.class, VanSseProperties.class})
 public class SettlementServiceApplication {
 
 	public static void main(String[] args) {

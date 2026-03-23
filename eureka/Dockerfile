@@ -10,11 +10,10 @@ COPY src src
 RUN chmod +x ./gradlew
 RUN ./gradlew clean bootJar -x test
 
-# 2단계: 실행 스테이지
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-
-# 빌드 스테이지에서 생성된 jar 복사
 COPY --from=build /app/build/libs/*.jar app.jar
 
+# Eureka 기본 포트는 보통 8761입니다.
+EXPOSE 8761
 ENTRYPOINT ["java", "-jar", "app.jar"]
