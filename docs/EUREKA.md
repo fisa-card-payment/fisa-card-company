@@ -1,5 +1,4 @@
-# fisa-card-company
-## FISA Eureka Server
+## 🖇️Eureka-Server
 
 MSA 환경에서 서비스 디스커버리를 담당하는 Eureka Server입니다.
 

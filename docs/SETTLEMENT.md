@@ -1,4 +1,4 @@
-# 🌠settlement-service
+## 💸Settlement-Service
 
 > VAN이 전송한 정산용 CSV를 수신하고, 원장(Replica DB) 대사 → 은행 이체 → VAN SSE 알림을 처리합니다.
 
