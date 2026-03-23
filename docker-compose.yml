@@ -117,7 +117,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       #TODO : VAN의 URL로 수정해야함
-      - VAN_SSE_BASE_URL=${VAN_SSE_BASE_URL:-http://host.docker.internal:8090}
+      - VAN_SSE_BASE_URL=${VAN_SSE_BASE_URL:-http://host.docker.internal:8081}
     depends_on:
       eureka-server:
         condition: service_started
