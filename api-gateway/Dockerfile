@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM amazoncorretto:17-alpine AS build
 WORKDIR /app
 
 COPY gradlew .
@@ -11,7 +11,7 @@ RUN chmod +x ./gradlew
 RUN ./gradlew clean bootJar -x test
 
 # 2단계: 실행 스테이지
-FROM eclipse-temurin:17-jre-alpine
+FROM amazoncorretto:17-alpine
 WORKDIR /app
 
 # 빌드 스테이지에서 생성된 jar 복사
