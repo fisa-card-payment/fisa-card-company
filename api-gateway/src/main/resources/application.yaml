@@ -9,15 +9,14 @@ spring:
       server:
         webmvc:
           routes:
-            - id: request-service
-              uri: http://localhost:8082
+            - id: payment-service
+              uri: lb://PAYMENT-SERVICE
               predicates:
                 - Path=/payment/**
 
             - id: settlement-service
-              uri: http://localhost:8084
+              uri: lb://SETTLEMENT-SERVICE
               predicates:
-                - Path=/api/batch/**
                 - Path=/api/settlement/**
 
 eureka:
