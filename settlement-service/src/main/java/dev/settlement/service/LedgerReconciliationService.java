@@ -1,6 +1,8 @@
 package dev.settlement.service;
 
 import dev.settlement.dto.ReconcileOutcome;
+import dev.settlement.global.util.SettlementStringUtils;
+import dev.settlement.repository.VanSettlementFileDao;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,19 +34,22 @@ public class LedgerReconciliationService {
 
     private final JdbcTemplate sharedJdbcTemplate;
     private final JdbcTemplate replicaJdbcTemplate;
+    private final VanSettlementFileDao fileDao;
 
     public LedgerReconciliationService(
             @Qualifier("sharedJdbcTemplate") JdbcTemplate sharedJdbcTemplate,
-            @Qualifier("replicaJdbcTemplate") JdbcTemplate replicaJdbcTemplate) {
+            @Qualifier("replicaJdbcTemplate") JdbcTemplate replicaJdbcTemplate,
+            VanSettlementFileDao fileDao) {
         this.sharedJdbcTemplate = sharedJdbcTemplate;
         this.replicaJdbcTemplate = replicaJdbcTemplate;
+        this.fileDao = fileDao;
     }
 
     @Transactional(transactionManager = "sharedTransactionManager")
     public ReconcileOutcome reconcile(long fileId) {
         List<StagingRow> staging = loadStaging(fileId);
         if (staging.isEmpty()) {
-            markFile(fileId, "COMPARE_OK", null);
+            fileDao.updateStatus(fileId, "COMPARE_OK", null);
             log.info("[대사] 건수 0 → COMPARE_OK fileId={}", fileId);
             return ReconcileOutcome.ok();
         }
@@ -53,8 +58,8 @@ public class LedgerReconciliationService {
         for (StagingRow s : staging) {
             String k = key(s.rrn, s.stan);
             if (!seenKeys.add(k)) {
-                String msg = "스테이징에 동일 RRN+STAN 중복: " + truncate(k, 120);
-                markFile(fileId, "COMPARE_FAIL", msg);
+                String msg = "스테이징에 동일 RRN+STAN 중복: " + SettlementStringUtils.truncate(k, 120);
+                fileDao.updateStatus(fileId, "COMPARE_FAIL", msg);
                 return ReconcileOutcome.fail(msg);
             }
         }
@@ -64,8 +69,8 @@ public class LedgerReconciliationService {
             ledgerByKey = loadLedger(staging);
         } catch (Exception e) {
             log.error("[대사] 원장 조회 실패 fileId={}", fileId, e);
-            String msg = truncate("원장 조회 오류: " + e.getMessage(), MAX_ERROR_LEN);
-            markFile(fileId, "COMPARE_FAIL", msg);
+            String msg = SettlementStringUtils.truncate("원장 조회 오류: " + e.getMessage(), MAX_ERROR_LEN);
+            fileDao.updateStatus(fileId, "COMPARE_FAIL", msg);
             return ReconcileOutcome.fail(msg);
         }
 
@@ -92,23 +97,15 @@ public class LedgerReconciliationService {
         }
 
         if (!problems.isEmpty()) {
-            String msg = truncate(String.join("; ", problems), MAX_ERROR_LEN);
-            markFile(fileId, "COMPARE_FAIL", msg);
+            String msg = SettlementStringUtils.truncate(String.join("; ", problems), MAX_ERROR_LEN);
+            fileDao.updateStatus(fileId, "COMPARE_FAIL", msg);
             log.warn("[대사] 불일치 fileId={} {}", fileId, msg);
             return ReconcileOutcome.fail(msg);
         }
 
-        markFile(fileId, "COMPARE_OK", null);
+        fileDao.updateStatus(fileId, "COMPARE_OK", null);
         log.info("[대사] 일치 fileId={} rows={}", fileId, staging.size());
         return ReconcileOutcome.ok();
-    }
-
-    private void markFile(long fileId, String status, String errorMessage) {
-        sharedJdbcTemplate.update(
-                "UPDATE van_settlement_file SET status = ?, error_message = ? WHERE id = ?",
-                status,
-                errorMessage,
-                fileId);
     }
 
     private List<StagingRow> loadStaging(long fileId) {
@@ -184,12 +181,6 @@ public class LedgerReconciliationService {
                 && ledgerDigits.endsWith(last4);
     }
 
-    private static String truncate(String s, int max) {
-        if (s == null) {
-            return null;
-        }
-        return s.length() <= max ? s : s.substring(0, max - 3) + "...";
-    }
 
     private record StagingRow(int lineNo, String rrn, String stan, String cardNumber, long amount,
                                 String merchantId, String approvalCode) {

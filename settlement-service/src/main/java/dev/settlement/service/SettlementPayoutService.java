@@ -5,6 +5,8 @@ import dev.settlement.dto.PayoutOutcome;
 import dev.settlement.dto.bank.BankTransferApiRequest;
 import dev.settlement.exception.BankTransferException;
 import dev.settlement.global.config.SettlementBankProperties;
+import dev.settlement.global.util.SettlementStringUtils;
+import dev.settlement.repository.VanSettlementFileDao;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -30,14 +32,17 @@ public class SettlementPayoutService {
     private final JdbcTemplate sharedJdbcTemplate;
     private final BankTransferClient bankTransferClient;
     private final SettlementBankProperties bankProperties;
+    private final VanSettlementFileDao fileDao;
 
     public SettlementPayoutService(
             @Qualifier("sharedJdbcTemplate") JdbcTemplate sharedJdbcTemplate,
             BankTransferClient bankTransferClient,
-            SettlementBankProperties bankProperties) {
+            SettlementBankProperties bankProperties,
+            VanSettlementFileDao fileDao) {
         this.sharedJdbcTemplate = sharedJdbcTemplate;
         this.bankTransferClient = bankTransferClient;
         this.bankProperties = bankProperties;
+        this.fileDao = fileDao;
     }
 
     public PayoutOutcome settleComparedFile(long fileId) {
@@ -60,7 +65,7 @@ public class SettlementPayoutService {
         }
 
         if (head.rowCount() == 0) {
-            markFile(fileId, "SETTLED", null);
+            fileDao.updateStatus(fileId, "SETTLED", null);
             log.info("[정산입금] 스테이징 0건 — SETTLED 처리 fileId={}", fileId);
             return PayoutOutcome.settled();
         }
@@ -83,7 +88,7 @@ public class SettlementPayoutService {
 
         if (lines.size() != stagingCount) {
             String msg = "가맹점 마스터에 없는 merchant_id가 포함됨 (staging=" + stagingCount + ", matched=" + lines.size() + ")";
-            markFile(fileId, "SETTLEMENT_FAIL", truncate(msg, 500));
+            fileDao.updateStatus(fileId, "SETTLEMENT_FAIL", SettlementStringUtils.truncate(msg, 500));
             return PayoutOutcome.failed(msg);
         }
 
@@ -114,30 +119,16 @@ public class SettlementPayoutService {
                     log.info("[정산입금] VAN 수수료 분배 line={} to={} amount={}", line, vanAcc, vanShare);
                 }
             }
-            markFile(fileId, "SETTLED", null);
+            fileDao.updateStatus(fileId, "SETTLED", null);
             return PayoutOutcome.settled();
         } catch (BankTransferException e) {
             log.error("[정산입금] 이체 실패 fileId={}: {}", fileId, e.getMessage());
-            String msg = truncate(e.getMessage(), 500);
-            markFile(fileId, "SETTLEMENT_FAIL", msg);
+            String msg = SettlementStringUtils.truncate(e.getMessage(), 500);
+            fileDao.updateStatus(fileId, "SETTLEMENT_FAIL", msg);
             return PayoutOutcome.failed(e.getMessage());
         }
     }
 
-    private void markFile(long fileId, String status, String errorMessage) {
-        sharedJdbcTemplate.update(
-                "UPDATE van_settlement_file SET status = ?, error_message = ? WHERE id = ?",
-                status,
-                errorMessage,
-                fileId);
-    }
-
-    private static String truncate(String s, int max) {
-        if (s == null) {
-            return null;
-        }
-        return s.length() <= max ? s : s.substring(0, max - 3) + "...";
-    }
 
     private record FileHead(String status, int rowCount) {
     }
