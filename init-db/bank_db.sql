@@ -5,7 +5,7 @@ CREATE TABLE bank_accounts (
                                account_no      VARCHAR(20) PRIMARY KEY,
                                owner_name      VARCHAR(50),
                                balance         BIGINT DEFAULT 0,
-                               account_type    VARCHAR(10)  -- USER, CARD_COMPANY, MERCHANT
+                               account_type    VARCHAR(50)  -- USER, CARD_COMPANY, MERCHANT
 );
 
 CREATE TABLE bank_transfer_log (
