@@ -1,4 +1,13 @@
 services:
+
+  eureka-server:
+    build: ./eureka
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - card-net
+
   # [DB 1] 원장 Source DB
   card-source-db:
     image: mysql:8.0
@@ -87,7 +96,10 @@ services:
       - DB_SOURCE_URL=jdbc:mysql://card-source-db:3306/ledger_source
       - DB_SHARED_URL=jdbc:mysql://card-shared-db:3306/shared_master
       - DB_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
     depends_on:
+      eureka-server:
+        condition: service_started
       card-source-db:
         condition: service_healthy
       card-shared-db:
@@ -103,9 +115,12 @@ services:
       - DB_REPLICA_URL=jdbc:mysql://card-replica-db:3306/ledger_replica
       - DB_SHARED_URL=jdbc:mysql://card-shared-db:3306/shared_master
       - DB_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       #TODO : VAN의 URL로 수정해야함
       - VAN_SSE_BASE_URL=${VAN_SSE_BASE_URL:-http://host.docker.internal:8090}
     depends_on:
+      eureka-server:
+        condition: service_started
       card-replica-db:
         condition: service_healthy
       card-shared-db:
@@ -120,7 +135,10 @@ services:
     environment:
       - DB_BANK_URL=jdbc:mysql://bank-db:3306/bank_system
       - DB_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
     depends_on:
+      eureka-server:
+        condition: service_started
       bank-db:
         condition: service_healthy
     networks:
@@ -132,7 +150,10 @@ services:
     container_name: api-gateway
     ports:
       - "${GW_PORT}:8080"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
     depends_on:
+      - eureka-server
       - payment-service
       - settlement-service
       - banking-service
