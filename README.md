@@ -216,9 +216,9 @@ VAN 수수료        = fee ÷ 2
 | **DE37** | 거래 참조 번호 (RRN) | `rrn` |
 | **DE39** | 응답 코드 (Response Code) | `responseCode` |
 
-### 5-2. 정산 방식: DDC(Data Draft Capture) 구조 채택
+### 5-2. 정산 방식: DDC(Data Draft Capture) 구조
 
-가장 보편적인 VAN 정산 방식인 DDC 구조를 시뮬레이션하였습니다.
+가장 보편적인 VAN 정산 방식인 DDC 구조를 차용하였습니다.
 
 | 방식 | 대상 가맹점 | 데이터 주체 | 특징 |
 |:---:|---|:---:|---|
@@ -226,9 +226,9 @@ VAN 수수료        = fee ÷ 2
 | **DESC** | 서명 필요 가맹점 | VAN | 전자 서명 이미지 전송 및 전표 수거 생략 |
 | **EDI** | 대형 가맹점 (백화점 등) | 가맹점 | 가맹점이 자체 정산 파일을 생성하여 VAN은 중계만 수행 |
 
-### 5-3. 기술적 의사결정 사례
+### 5-3. 기술적 고려사항
 
-*   **SFTP vs HTTP Multipart**: 실제 업무에서는 보안을 위해 SFTP를 주로 사용하나, 본 프로젝트에서는 구현 편의성과 RESTful한 연동을 위해 HTTP Multipart/form-data 방식을 채택하였습니다.
+*   **SFTP vs HTTP Multipart**: 실제 업무에서는 보안을 위해 SFTP를 주로 사용하나, 본 프로젝트에서는 구현 편의성을 위해 HTTP Multipart/form-data 방식을 채택하였습니다.
 *   **SSE 도입 요구사항**: 결제 정산 프로세스는 대량 처리가 수반되는 긴 작업이므로, Polling 방식 대신 서버 푸시(SSE)를 통해 완료 시점을 효율적으로 알리도록 설계하였습니다.
 
 ---
@@ -252,12 +252,16 @@ VAN 수수료        = fee ÷ 2
 
 ### 🔎 상세 문서
 *   [🛠️ DB 구조 및 상세 ERD](./docs/detailERD.md)
-*   [📑 Payment Service (승인)](./docs/PAYMENT.md)
-*   [📑 Settlement Service (정산)](./docs/SETTLEMENT.md)
-*   [📑 Banking Service (은행)](./docs/BANK.md)
-*   [🖇️ Eureka & Gateway (통신)](./docs/EUREKA.md)
+*   [📑 Payment Service ](./docs/PAYMENT.md)
+*   [📑 Settlement Service ](./docs/SETTLEMENT.md)
+*   [📑 Banking Service ](./docs/BANK.md)
+*   [📑 VAN ](https://github.com/fisa-card-payment/fisa-van/blob/main/VAN_%EB%A1%9C%EC%A7%81_%EB%AC%B8%EC%84%9C.md)
+*   [🖇️ Eureka ](./docs/EUREKA.md)
+*   [🖇️ Gateway ](./docs/APIGATEWAY.md)
+*   [🚀 실행 방법](./docs/how2Run.md)
 
 ### 📚 외부 참조 지표
 *   **관련 법령**: [여신전문금융업법 (신용카드업)](https://law.go.kr/lsLinkCommonInfo.do?lsJoLnkSeq=1022614019)
+*   **VAN 서비스**: [KOCES VAN 서비스 흐름](https://koces.co.kr/business/service_van.php)
 *   **금융 표준**: [ISO 8583 메시지 포맷의 이해](https://connieya.github.io/understanding-iso-8583/)
 *   **실제 서비스**: [KFTC(금융결제원) 정산 서비스 안내](https://www.kftcvan.or.kr/guide/service/creditCard.do?tab=03)
