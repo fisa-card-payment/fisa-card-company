@@ -45,8 +45,8 @@ public class CheckPaymentService {
         String rrn = generateRrn();
         log.info("체크카드 결제 요청 - RRN: {}, 금액: {}", rrn, request.getAmount());
 
-        // 2. 카드 검증
-        CardMaster card = cardMasterRepository.findByCardNumberWithLock(request.getCardNumber())
+        // 2. 카드 검증 (체크카드는 card_master 수정 없으므로 락 불필요)
+        CardMaster card = cardMasterRepository.findByCardNumber(request.getCardNumber())
                 .orElseThrow(() -> new PaymentException(ErrorCode.CARD_NOT_FOUND));
 
         if (!card.isActive()) {
