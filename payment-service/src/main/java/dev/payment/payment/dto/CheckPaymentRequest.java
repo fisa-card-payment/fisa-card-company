@@ -14,12 +14,9 @@ import lombok.NoArgsConstructor;
 @Schema(description = "체크카드 결제 요청")
 public class CheckPaymentRequest {
 
-    @Schema(description = "카드번호 (16자리 숫자, 하이픈 포함 가능)", example = "4000-1234-5678-0001")
+    @Schema(description = "카드번호 (16자리 숫자)", example = "1234567890120003")
     @NotBlank(message = "카드번호는 필수입니다.")
-    @Pattern(
-            regexp = "\\d{4}-\\d{4}-\\d{4}-\\d{4}|\\d{16}",
-            message = "카드번호는 16자리 숫자 또는 XXXX-XXXX-XXXX-XXXX 형식이어야 합니다."
-    )
+    @Pattern(regexp = "\\d{16}", message = "카드번호는 16자리 숫자여야 합니다.")
     private String cardNumber;
 
     @Schema(description = "결제 금액 (1원 이상)", example = "50000")
