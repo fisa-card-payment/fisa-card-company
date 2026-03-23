@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-@Schema(description = "신용카드 결제 요청")
-public class CreditPaymentRequest {
+@Schema(description = "카드 결제 요청 (신용/체크 공통)")
+public class PaymentRequest {
 
     @Schema(description = "카드번호 (16자리 숫자)", example = "1234567890120001")
     @NotBlank(message = "카드번호는 필수입니다.")
