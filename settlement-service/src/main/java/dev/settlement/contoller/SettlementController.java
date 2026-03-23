@@ -5,10 +5,12 @@ import dev.settlement.service.SettlementAsyncProcessor;
 import dev.settlement.service.VanCsvReceiveService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,19 +31,17 @@ public class SettlementController {
 
     /**
      * VAN → 카드사: CSV 수신·스테이징 후 즉시 응답.
+     * {@code batchDate}(yyyy-MM-dd)는 multipart 폼 필드로 필수.
      * 원장 대사·입금·VAN 알림(SSE 트리거)은 비동기로 진행됩니다.
      */
-    @PostMapping("/upload")
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> uploadCsv(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "batchDate", required = false) String batchDate) {
+            @RequestPart("file") MultipartFile file,
+            @RequestParam("batchDate") String batchDate) {
 
-        String batchDateNorm = batchDate == null ? null : batchDate.trim();
-        if (batchDateNorm != null && !batchDateNorm.isEmpty() && !BATCH_DATE.matcher(batchDateNorm).matches()) {
-            return badRequest("batchDate는 yyyy-MM-dd 형식이어야 합니다.");
-        }
-        if (batchDateNorm != null && batchDateNorm.isEmpty()) {
-            batchDateNorm = null;
+        String batchDateNorm = batchDate.trim();
+        if (batchDateNorm.isEmpty() || !BATCH_DATE.matcher(batchDateNorm).matches()) {
+            return badRequest("batchDate는 yyyy-MM-dd 형식의 필수 값입니다.");
         }
 
         if (file.isEmpty()) {

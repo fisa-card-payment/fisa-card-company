@@ -7,9 +7,11 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 @SpringBootApplication
 @EnableAsync
+@EnableDiscoveryClient
 @EnableConfigurationProperties({VanUploadProperties.class, SettlementBankProperties.class, VanSseProperties.class})
 public class SettlementServiceApplication {
 
