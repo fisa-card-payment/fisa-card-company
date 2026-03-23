@@ -1,5 +1,5 @@
 server:
-  port: 8082
+  port: 8084
 
 spring:
   application:
@@ -7,12 +7,12 @@ spring:
 
   datasource:
     replica: # DB 3: 원장 Replica
-      jdbc-url: ${DB_REPLICA_URL:jdbc:mysql://localhost:3313/ledger_replica}
+      jdbc-url: "${DB_REPLICA_URL:jdbc:mysql://localhost:3313/ledger_replica?allowPublicKeyRetrieval=true&useSSL=false}"
       username: root
       password: ${DB_PASSWORD:1234}
       driver-class-name: com.mysql.cj.jdbc.Driver
     shared: # DB 2: 개인정보/마스터
-      jdbc-url: ${DB_SHARED_URL:jdbc:mysql://localhost:3312/shared_master}
+      jdbc-url: "${DB_SHARED_URL:jdbc:mysql://localhost:3312/shared_master?allowPublicKeyRetrieval=true&useSSL=false}"
       username: root
       password: ${DB_PASSWORD:1234}
       driver-class-name: com.mysql.cj.jdbc.Driver
@@ -20,11 +20,35 @@ spring:
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
 
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: true
-
 # 정산 성공 시 입금 요청을 보낼 은행 서버 주소
 service:
   bank-url: http://banking-service:8083
+
+# VAN CSV 수신 시 임시 저장 경로
+settlement:
+  van-upload:
+    temp-dir: ${SETTLEMENT_VAN_TEMP_DIR:./var/van-settlement-uploads}
+  bank:
+    # bank_db.sql: 우리카드 정산 출금 계좌, VAN 수수료 입금 계좌
+    card-company-account: ${SETTLEMENT_CARD_COMPANY_ACCOUNT:9000-0001}
+    van-account: ${SETTLEMENT_VAN_ACCOUNT:9000-0002}
+  van-sse:
+    enabled: ${VAN_SSE_ENABLED:true}
+    base-url: ${VAN_SSE_BASE_URL:http://localhost:8090}
+
+# 유레카 설정
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    enabled: true
+  instance:
+    prefer-ip-address: true
+
+
+
+logging:
+  level:
+    root: INFO
+    dev.settlement: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
