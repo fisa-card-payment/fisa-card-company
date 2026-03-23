@@ -19,6 +19,7 @@ services:
       - "${MYSQL_PORT_SOURCE}:3306"
     volumes:
       - ./init-db/source_db.sql:/docker-entrypoint-initdb.d/source_db.sql
+      - ./conf/master.cnf:/etc/mysql/conf.d/my.cnf
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       interval: 10s
@@ -51,12 +52,13 @@ services:
     image: mysql:8.0
     container_name: card-replica-db
     environment:
-      MYSQL_DATABASE: ledger_replica
+      MYSQL_DATABASE: ledger_source
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
     ports:
       - "${MYSQL_PORT_REPLICA}:3306"
     volumes:
       - ./init-db/replica_db.sql:/docker-entrypoint-initdb.d/replica_db.sql
+      - ./conf/slave.cnf:/etc/mysql/conf.d/my.cnf
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       interval: 10s
@@ -96,7 +98,7 @@ services:
       - DB_SOURCE_URL=jdbc:mysql://card-source-db:3306/ledger_source
       - DB_SHARED_URL=jdbc:mysql://card-shared-db:3306/shared_master
       - DB_PASSWORD=${DB_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
     depends_on:
       eureka-server:
         condition: service_started
@@ -114,10 +116,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - DB_REPLICA_URL=jdbc:mysql://card-replica-db:3306/ledger_replica
+      - DB_REPLICA_URL=jdbc:mysql://card-replica-db:3306/ledger_source
       - DB_SHARED_URL=jdbc:mysql://card-shared-db:3306/shared_master
       - DB_PASSWORD=${DB_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       # VAN의 URL
       - SETTLEMENT_VAN_SSE_BASE_URL=http://host.docker.internal:8081
     depends_on:
@@ -137,7 +139,7 @@ services:
     environment:
       - DB_BANK_URL=jdbc:mysql://bank-db:3306/bank_system
       - DB_PASSWORD=${DB_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
     depends_on:
       eureka-server:
         condition: service_started
@@ -153,7 +155,7 @@ services:
     ports:
       - "${GW_PORT}:8080"
     environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
     depends_on:
       - eureka-server
       - payment-service

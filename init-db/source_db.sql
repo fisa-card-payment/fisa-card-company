@@ -12,3 +12,7 @@ CREATE TABLE card_ledger (
                              settlement_status    VARCHAR(10),
                              approved_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE USER 'replicator'@'%' IDENTIFIED BY '1234';
+GRANT REPLICATION SLAVE ON *.* TO 'replicator'@'%';
+FLUSH PRIVILEGES;
