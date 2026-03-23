@@ -6,12 +6,13 @@ import dev.payment.domain.ledger.entity.CardLedger;
 import dev.payment.global.exception.ErrorCode;
 import dev.payment.global.exception.PaymentException;
 import dev.payment.payment.client.BankClient;
-import dev.payment.payment.dto.CheckPaymentRequest;
-import dev.payment.payment.dto.CheckPaymentResponse;
+import dev.payment.payment.dto.PaymentRequest;
+import dev.payment.payment.dto.PaymentResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.util.UUID;
