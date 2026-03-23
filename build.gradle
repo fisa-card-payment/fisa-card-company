@@ -1,0 +1,8 @@
+// 루트 프로젝트 - 각 서비스는 독립적인 Spring Boot 앱
+// 공통 설정은 각 서비스의 build.gradle에서 개별 관리
+
+subprojects {
+    repositories {
+        mavenCentral()
+    }
+}

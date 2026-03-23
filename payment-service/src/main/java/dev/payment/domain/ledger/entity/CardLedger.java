@@ -33,7 +33,7 @@ public class CardLedger {
     @Column(name = "stan", length = 6, unique = true, nullable = false)
     private String stan;
 
-    @Column(name = "card_number", length = 19, nullable = false)
+    @Column(name = "card_number", length = 16, nullable = false)
     private String cardNumber;
 
     @Column(name = "merchant_id", length = 15, nullable = false)

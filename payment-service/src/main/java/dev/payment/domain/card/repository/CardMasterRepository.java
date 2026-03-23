@@ -14,8 +14,12 @@ public interface CardMasterRepository extends JpaRepository<CardMaster, String> 
     /**
      * 동시 결제 요청 시 Race Condition 방지를 위해 Pessimistic Write Lock 적용.
      * 같은 카드로 동시 요청이 들어올 경우 한 트랜잭션이 완료될 때까지 나머지는 대기.
+     * 신용카드 결제(한도 차감)에만 사용.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM CardMaster c WHERE c.cardNumber = :cardNumber")
     Optional<CardMaster> findByCardNumberWithLock(@Param("cardNumber") String cardNumber);
+
+    /** 체크카드 검증용 - 조회만 하므로 락 불필요 */
+    Optional<CardMaster> findByCardNumber(String cardNumber);
 }

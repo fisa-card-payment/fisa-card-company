@@ -10,24 +10,19 @@ spring:
         webmvc:
           routes:
             - id: payment-service
-              uri: http://payment-service:8082
+              uri: lb://payment-service
               predicates:
                 - Path=/api/payment/**
 
-            - id: payment-service-direct
-              uri: http://payment-service:8082
-              predicates:
-                - Path=/payment/**
-
             - id: settlement-service
-              uri: http://settlement-service:8084
+              uri: lb://settlement-service
               predicates:
                 - Path=/api/settlement/**
 
 eureka:
   client:
     service-url:
-      defaultZone: http://eureka-server:8761/eureka/
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
     enabled: true
   instance:
     prefer-ip-address: true
