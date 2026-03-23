@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 public class CardMaster {
 
     @Id
-    @Column(name = "card_number", length = 19)
+    @Column(name = "card_number", length = 16)
     private String cardNumber;
 
     @Column(name = "user_id", length = 20)

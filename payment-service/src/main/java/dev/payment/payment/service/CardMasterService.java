@@ -43,6 +43,16 @@ public class CardMasterService {
     }
 
     /**
+     * 카드 타입 조회 - approve 엔드포인트 라우팅 전용 (락 없는 단순 조회)
+     */
+    @Transactional(value = "sharedTransactionManager", readOnly = true)
+    public String getCardType(String cardNumber) {
+        return cardMasterRepository.findByCardNumber(cardNumber)
+                .orElseThrow(() -> new PaymentException(ErrorCode.CARD_NOT_FOUND))
+                .getCardType();
+    }
+
+    /**
      * 보상 트랜잭션: 원장 기록 실패 시 한도 복원
      */
     @Transactional("sharedTransactionManager")
