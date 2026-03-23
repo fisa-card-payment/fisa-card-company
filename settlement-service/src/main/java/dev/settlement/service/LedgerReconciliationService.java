@@ -15,6 +15,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * VAN 스테이징(shared)과 원장 Replica({@code card_ledger}) 건별 대사.
@@ -24,6 +26,9 @@ import java.util.Set;
 public class LedgerReconciliationService {
 
     private static final int MAX_ERROR_LEN = 500;
+
+    /** VAN CSV 카드번호: 앞 6자리(BIN) + ****** + 뒤 4자리 */
+    private static final Pattern VAN_MASKED_CARD = Pattern.compile("^(\\d{6})\\*{6}(\\d{4})$");
 
     private final JdbcTemplate sharedJdbcTemplate;
     private final JdbcTemplate replicaJdbcTemplate;
@@ -159,23 +164,24 @@ public class LedgerReconciliationService {
     }
 
     /**
-     * 마스킹된 카드번호(예: 412345******2345)는 원장 번호의 끝자리와 일치하면 통과.
+     * VAN CSV는 카드번호가 항상 마스킹으로 온다: 앞 6자리 + ****** + 뒤 4자리.
+     * 원장은 전체 번호(하이픈 등 가능) — 숫자만 뽑아 앞 6·뒤 4가 마스킹과 같으면 일치.
      */
-    static boolean cardMatches(String stagingCard, String ledgerCard) {
-        if (stagingCard == null || ledgerCard == null) {
+    static boolean cardMatches(String maskedCardFromVanCsv, String fullCardFromLedger) {
+        if (maskedCardFromVanCsv == null || fullCardFromLedger == null) {
             return false;
         }
-        String s = stagingCard.trim();
-        String l = ledgerCard.trim();
-        if (s.contains("*")) {
-            int lastStar = s.lastIndexOf('*');
-            String tail = s.substring(lastStar + 1).replaceAll("[^0-9]", "");
-            String ledgerDigits = l.replaceAll("[^0-9]", "");
-            return !tail.isEmpty() && ledgerDigits.endsWith(tail);
+        String compact = maskedCardFromVanCsv.trim().replaceAll("[^0-9*]", "");
+        Matcher m = VAN_MASKED_CARD.matcher(compact);
+        if (!m.matches()) {
+            return false;
         }
-        String sd = s.replaceAll("[^0-9]", "");
-        String ld = l.replaceAll("[^0-9]", "");
-        return sd.equals(ld);
+        String first6 = m.group(1);
+        String last4 = m.group(2);
+        String ledgerDigits = fullCardFromLedger.trim().replaceAll("[^0-9]", "");
+        return ledgerDigits.length() >= 10
+                && ledgerDigits.startsWith(first6)
+                && ledgerDigits.endsWith(last4);
     }
 
     private static String truncate(String s, int max) {
