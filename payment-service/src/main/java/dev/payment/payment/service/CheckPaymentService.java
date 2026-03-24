@@ -2,6 +2,7 @@ package dev.payment.payment.service;
 
 import dev.payment.domain.card.entity.CardMaster;
 import dev.payment.domain.card.repository.CardMasterRepository;
+import dev.payment.domain.ledger.entity.CardLedger;
 import dev.payment.global.exception.ErrorCode;
 import dev.payment.global.exception.PaymentException;
 import dev.payment.payment.client.BankClient;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.util.UUID;
@@ -39,6 +41,7 @@ public class CheckPaymentService {
      *    실패 시 → 잔액 부족 거절 응답
      * 4. 원장 기록 - APPROVED (sourceTransactionManager)
      */
+    @Transactional("sharedTransactionManager")
     public PaymentResponse processCheck(PaymentRequest request) {
         // 1. RRN 생성
         String rrn = generateRrn();

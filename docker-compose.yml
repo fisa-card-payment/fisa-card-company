@@ -10,7 +10,10 @@ services:
 
   # [DB 1] 원장 Source DB
   card-source-db:
-    image: mysql:8.0
+    # image: mysql:8.0
+    build:
+      context: .
+      dockerfile: ./mysql/master/Dockerfile
     container_name: card-source-db
     environment:
       MYSQL_DATABASE: ledger_source
@@ -19,6 +22,7 @@ services:
       - "${MYSQL_PORT_SOURCE}:3306"
     volumes:
       - ./init-db/source_db.sql:/docker-entrypoint-initdb.d/source_db.sql
+      #- ./conf/master.cnf:/etc/mysql/conf.d/my.cnf:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       interval: 10s
@@ -48,15 +52,19 @@ services:
 
   # [DB 3] 원장 Replica DB
   card-replica-db:
-    image: mysql:8.0
+    # image: mysql:8.0
+    build:
+      context: .
+      dockerfile: ./mysql/slave/Dockerfile
     container_name: card-replica-db
     environment:
-      MYSQL_DATABASE: ledger_replica
+      MYSQL_DATABASE: ledger_source
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
     ports:
       - "${MYSQL_PORT_REPLICA}:3306"
     volumes:
       - ./init-db/replica_db.sql:/docker-entrypoint-initdb.d/replica_db.sql
+      #- ./conf/slave.cnf:/etc/mysql/conf.d/my.cnf:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       interval: 10s
@@ -96,7 +104,7 @@ services:
       - DB_SOURCE_URL=jdbc:mysql://card-source-db:3306/ledger_source
       - DB_SHARED_URL=jdbc:mysql://card-shared-db:3306/shared_master
       - DB_PASSWORD=${DB_PASSWORD}
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
     depends_on:
       eureka-server:
         condition: service_started
@@ -114,7 +122,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - DB_REPLICA_URL=jdbc:mysql://card-replica-db:3306/ledger_replica
+      - DB_REPLICA_URL=jdbc:mysql://card-replica-db:3306/ledger_source
       - DB_SHARED_URL=jdbc:mysql://card-shared-db:3306/shared_master
       - DB_PASSWORD=${DB_PASSWORD}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
