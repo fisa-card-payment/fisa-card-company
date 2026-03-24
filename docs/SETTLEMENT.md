@@ -10,13 +10,11 @@
 2. [기술 스택](#2-기술-스택)
 3. [아키텍처 / 전체 흐름](#3-아키텍처--전체-흐름)
 4. [API 명세](#4-api-명세)
-5. [처리 단계 1 — CSV 수신 & 스테이징](#5-처리-단계-1--csv-수신--스테이징)
-6. [처리 단계 2 — 원장 대사](#6-처리-단계-2--원장-대사)
-7. [처리 단계 3 — 수수료 계산 & 정산 입금](#7-처리-단계-3--수수료-계산--정산-입금)
-8. [클라이언트 — BankTransferClient](#8-클라이언트--banktransferclient)
-9. [클라이언트 — VanBatchResultNotifier & SSE](#9-클라이언트--vanbatchresultnotifier--sse)
-10. [데이터베이스](#10-데이터베이스)
-11. [빌드 & 실행](#11-빌드--실행)
+5. [처리 단계](#5-처리-단계)
+6. [데이터베이스](#6-데이터베이스)
+7. [기술적 고려사항](#7-기술적-고려사항)
+8. [현재 시스템의 한계 및 보완점](#8-현재-시스템의-한계-및-보완점)
+9. [빌드 & 실행](#9-빌드--실행)
 
 ---
 
@@ -140,108 +138,43 @@ VAN 서버에서 정산 CSV를 업로드하는 엔드포인트입니다.
 
 ---
 
-## 5. 처리 단계 1 — CSV 수신 & 스테이징
+## 5. 처리 단계
 
-### 관련 클래스
+### 1️⃣ [동기] 파일 수신 및 스테이징 (Phase 1)
 
-| 클래스 | 역할 |
-|--------|------|
-| `SettlementController` | HTTP 진입점, 검증, 스테이징 호출, 비동기 트리거 |
-| `VanCsvReceiveService` | 디스크 저장 + shared DB 트랜잭션 처리 |
-| `SettlementService` | CSV 파일 파싱 |
+사용자의 업로드 요청에 대해 최소한의 데이터 안전성만 확보하고 즉시 응답하는 구간입니다.
 
-### 처리 흐름
+- 진입점: SettlementController (POST /api/settlement/upload)
 
-1. **파일 검증** (`SettlementController`)
-   - `batchDate` 형식 검증 (`\d{4}-\d{2}-\d{2}`)
-   - 파일 비어있음 여부, `.csv` 확장자 여부 확인
+- 물리 저장: file.transferTo()를 통해 디스크에 저장 (UUID를 통한 파일명 충돌 방지).
 
-2. **디스크 임시 저장** (`VanCsvReceiveService`)
-   - 저장 경로: `{settlement.van-upload.temp-dir}/{UUID}_{원본파일명}`
-   - 경로 순회 공격 방지: `..` 포함 파일명 거부
+- DB 기록: van_settlement_file에 메타데이터 기록 (상태: RECEIVED).
 
-3. **CSV 파싱** (`SettlementService.parseCsvFile`)
-   - 첫 번째 행(헤더) 스킵, 빈 행 스킵
-   - 결과: `List<VanCsvRow>` (줄 번호 포함)
+- Staging 적재: CSV를 파싱하여 van_settlement_staging 테이블에 Bulk Insert (batchUpdate).
 
-4. **스테이징 배치 INSERT**
-   - `van_settlement_staging`에 `JdbcTemplate.batchUpdate`로 일괄 INSERT
+- 상태 전이: 모든 적재가 완료되면 상태를 STAGED로 변경 후 200 OK 응답.
 
-5. **상태 갱신**
-   - `van_settlement_file` → `status = STAGED`, `row_count = N`
+### 2️⃣ [비동기] 원장 대사 (Phase 2: Reconciliation)
 
-6. **비동기 트리거**
-   - `SettlementAsyncProcessor.continueAfterStaging(fileId, batchDate)` 호출 후 즉시 HTTP 200 반환
+@Async를 통해 백그라운드에서 실행되며, 데이터의 정합성을 검증하는 핵심 단계입니다.
 
-### 트랜잭션 경계
+- 데이터 로드: file_id를 기준으로 스테이징 데이터 전체 로드.
+- 원장 매칭: (RRN, STAN)을 복합 키로 사용하여 Replica DB(card_ledger)에서 대조군 조회.
+- 검증 로직: Application Map 방식 사용: 모든 데이터를 메모리에 올려 $O(1)$ 속도로 체크.
+- 체크 항목: 원장 존재 여부, 금액 일치, 가맹점 ID 일치, 승인번호 일치, 카드번호 마스킹 대조.
+- 결과: 일치 시 COMPARE_OK, 불일치 시 COMPARE_FAILED.
 
-`VanCsvReceiveService.receiveAndStage`는 `@Transactional(transactionManager = "sharedTransactionManager")`으로 묶여 있습니다. 디스크 저장 ~ 스테이징 INSERT ~ 상태 갱신이 하나의 트랜잭션입니다.
+### 3️⃣ [비동기] 수수료 계산 및 입금 (Phase 3: Payout)
 
----
+대사가 성공한 건에 한해 실제 금전적 이동을 처리합니다.
 
-## 6. 처리 단계 2 — 원장 대사
+- 실행 조건: 파일 상태가 반드시 COMPARE_OK여야 함.
+- 수수료 산식:가맹점 몫: $금액 - (금액 \times 수수료율)$
+- VAN사 지분: $수수료 \div 2$
+- 뱅킹 연동: BankTransferClient를 통해 외부 Banking-Service 호출.
+- 상태 전이: 전체 루프 성공 시 SETTLED, 도중 실패 시 SETTLEMENT_FAIL.
 
-### 관련 클래스
-
-| 클래스 | 역할 |
-|--------|------|
-| `SettlementAsyncProcessor` | `@Async` 비동기 오케스트레이터 |
-| `LedgerReconciliationService` | 스테이징 ↔ card_ledger 건별 대사 |
-
-### 비교 절차
-
-```
-1. van_settlement_staging 전체 로드 (file_id 기준)
-2. RRN + STAN 중복 여부 확인 → 중복 시 즉시 COMPARE_FAIL
-3. (rrn, stan) 묶음으로 card_ledger 일괄 조회 (replica DB)
-4. 건별 비교:
-   - 금액 (amount)
-   - 가맹점 ID (merchant_id)
-   - 승인번호 (approval_code)
-   - 카드번호 (마스킹 처리 된 부분을 제외한 앞 뒤 비교)
-5. 불일치 항목이 하나라도 있으면 COMPARE_FAIL + error_message 기록
-6. 전체 일치 시 COMPARE_OK
-```
-
-### 결과
-
-| 결과 | `van_settlement_file.status` |
-|------|------------------------------|
-| 전체 일치 | `COMPARE_OK` |
-| 중복/불일치/원장 없음 | `COMPARE_FAIL` + `error_message` |
-
----
-
-## 7. 처리 단계 3 — 수수료 계산 & 정산 입금
-
-### 관련 클래스
-
-| 클래스 | 역할 |
-|--------|------|
-| `SettlementPayoutService` | 수수료 계산 및 이체 실행 |
-| `SettlementBankProperties` | 카드사·VAN 계좌번호 |
-
-### 실행 조건
-
-`van_settlement_file.status == COMPARE_OK`인 경우에만 실행합니다. 대사 실패(`COMPARE_FAIL`) 시에는 입금 단계를 생략합니다.
-
-### 수수료 계산 공식
-
-```
-fee        = amount × fee_rate        (HALF_UP 반올림)
-merchantPay = amount - fee             (가맹점 입금액)
-vanShare   = fee ÷ 2                  (VAN 수수료 분배)
-```
-
-**예시** (`amount = 10,000원`, `fee_rate = 0.0200` (2%))
-
-| 항목 | 계산 | 결과 |
-|------|------|------|
-| 수수료 (fee) | 10,000 × 0.02 | 200원 |
-| 가맹점 입금액 (merchantPay) | 10,000 - 200 | 9,800원 |
-| VAN 수수료 (vanShare) | 200 ÷ 2 | 100원 |
-
-### 이체 흐름
+*이체 흐름*
 
 ```
 카드사 계좌 (9000-0001)
@@ -251,111 +184,19 @@ vanShare   = fee ÷ 2                  (VAN 수수료 분배)
     └──▶ VAN 계좌 (9000-0002):  vanShare 원
 ```
 
-### 예외 처리
+### 4️⃣ [비동기] 최종 결과 알림 (Phase 4: Notification)
 
-| 상황 | 동작 |
-|------|------|
-| `merchant_master`에 없는 `merchant_id` 포함 | 즉시 `SETTLEMENT_FAIL` |
-| `settle_account`가 빈 문자열 | `BankTransferException` 발생 → `SETTLEMENT_FAIL` |
-| `merchantPay ≤ 0` | `BankTransferException` 발생 → `SETTLEMENT_FAIL` |
-| 이체 API 호출 실패 | `BankTransferException` 발생 → `SETTLEMENT_FAIL` |
+모든 정산 결과를 VAN사에 Push하여 실시간 사용자 알림(SSE)을 유도합니다.
 
----
-
-## 8. 클라이언트 — BankTransferClient
-
-### 역할
-
-`banking-service`의 이체 API를 호출하여 실제 계좌 간 금액을 이동시킵니다.
-
-### 설정
-
-```yaml
-service:
-  bank-url: http://banking-service:8083
-```
-
-`BankRestClientConfig`에서 `RestClient` 빈(`bankRestClient`)을 `bank-url`로 등록합니다.
-
-### API 호출
-
-```
-POST {service.bank-url}/api/bank/transfer
-Content-Type: application/json
-```
-
-**요청 DTO** (`BankTransferApiRequest`)
-
-```json
-{
-  "fromAccount": "9000-0001",
-  "toAccount":   "2001-0001",
-  "amount":      9800
-}
-```
-
-| 필드 | 설명 |
-|------|------|
-| `fromAccount` | 출금 계좌 (카드사 정산 계좌) |
-| `toAccount` | 입금 계좌 (가맹점 또는 VAN 계좌) |
-| `amount` | 이체 금액 (원) |
-
-**응답 DTO** (`BankTransferApiResponse`)
-
-banking-service의 이체 결과를 담습니다.
+- 알림 전송: VanBatchResultNotifier가 VAN API 서버로 POST 요청.
+- 상태 코드 매핑 (buildDto):
+  - 대사 실패 → COMPARE_FAILED
+  - 입금 성공 → SUCCESS
+  - 입금 실패 및 기타 예외 → SETTLEMENT_FAILED
 
 ---
 
-## 9. 클라이언트 — VanBatchResultNotifier & SSE
-
-### 역할
-
-정산 파이프라인(대사 + 입금)이 완료되면 VAN 서버에 결과를 HTTP POST로 전송합니다. VAN 서버는 이 요청을 받아 SSE 구독 중인 클라이언트에게 이벤트를 전파합니다.
-
-```
-settlement-service
-    └──POST /api/van/sse/batch-result──▶ VAN 서버
-                                              └──SSE push──▶ 브라우저/구독 클라이언트
-```
-
-### 설정
-
-```yaml
-settlement:
-  van-sse:
-    enabled: true
-    base-url: http://host.docker.internal:8081
-```
-
-### API 호출
-
-```
-POST {settlement.van-sse.base-url}/api/van/sse/batch-result
-Content-Type: application/json
-```
-
-**요청 DTO** (`BatchResultDto`)
-
-```json
-{
-  "batchDate":  "2024-01-01",
-  "statusCode": "SUCCESS",
-  "message":    "대사 및 정산 입금이 완료되었습니다."
-}
-```
-
-### BatchStatusCode
-
-| 코드 | 의미 | 발생 조건 |
-|------|------|-----------|
-| `SUCCESS` | 대사·입금 완전 성공 | `COMPARE_OK` + `SETTLED` |
-| `COMPARE_FAILED` | 원장 대사 실패 | `COMPARE_FAIL` |
-| `SETTLEMENT_FAILED` | 입금 단계 실패 | `COMPARE_OK` + `SETTLEMENT_FAIL` |
-| `PROCESSING_FAILED` | 비동기 처리 중 예외 | `@Async` 내 예외 발생 |
-
----
-
-## 10. 데이터베이스
+## 6. 데이터베이스
 
 ### 사용 DB 목록
 
@@ -392,10 +233,51 @@ stateDiagram-v2
 | `SETTLED` | 입금 이체까지 완료 |
 | `SETTLEMENT_FAIL` | 대사 성공 후 이체 실패 |
 
+---
+
+## 7. 고려사항
+
+### Reconciliation(대사) 방식 비교
+
+현재 시스템에서 대사를 처리하는 세 가지 방식에 대한 비교입니다.
+
+| 구분 | Application Map (현재) | DB Level Join | Chunk (Spring Batch) |
+| :--- | :--- | :--- | :--- |
+| **특징** | 자바 메모리에서 전수 비교 | SQL JOIN 활용 | N건씩 끊어서 처리 |
+| **장점** | 비즈니스 로직(마스킹 등) 구현 자유 | 데이터 이동 최소화, 안정성 확보 | 안정성 끝판왕, 메모리 사용량 고정 |
+| **단점** | 데이터 대량 유입 시 OOM 위험 | DB간 서버 분리 시 조인 불가 | 전체 처리 속도가 상대적으로 느림 |
+| **적합성** | 5만 건 이하 (현재 규모) | 수십만 건 이상 (동일 DB일 때) | 수백만 건 이상 대규모 정산 |
+
+> [!NOTE]  
+> 현재 선정 방식: Application Map
+> 현재 `ledger_replica`와 `shared_master`(staging)가 물리적으로 서로 다른 데이터베이스 서버에 존재하기 때문에 SQL 수준의 `DB Level Join`은 어렵습니다. ( DB 링크, 임시 테이블 활용, 데이터 가상화 등의 방법이 필요)
 
 ---
 
-## 11. 빌드 & 실행
+## 8. 현재 시스템의 한계 및 보완점
+
+🔴 멱등성(Idempotency) 부재
+- 현상: 동일 파일 재업로드 시 별도의 중복 체크 없이 새 fileId로 정산이 재시도됨.
+- 위험: 중복 입금 사고 발생 가능성.
+- 보안: file_name에 UNIQUE 제약 조건을 추가하거나 업로드 전 상태 조회 로직 추가 필요.
+
+🟡 부분 이체 롤백 불가
+- 현상: 가맹점 루프 이체 중 에러 발생 시, 이전 성공 건은 롤백되지 않음.
+- 위험: 재시도 시 성공한 가맹점에게 이중 입금 위험.
+- 보안: staging 테이블에 payout_yn 플래그를 추가하여 성공 건은 Skip하도록 개선 필요.
+
+=> **Spring Batch** 도입의 필요성
+
+| 현재 시스템 한계 | Spring Batch 해결 방식 |
+| :--- | :--- |
+| 메모리 부족 (OOM) | Chunk 지향 처리: 일정 단위(Chunk)로 끊어 읽어 메모리 점유율 고정 |
+| 부분 실패/롤백 불가 | Skip & Retry: 실패 건만 건너뛰거나 다시 시도하는 정책 내장 |
+| 중복 실행 위험 | JobInstance 관리: 성공한 파라미터(날짜/파일명)의 중복 실행 원천 차단 |
+| 상태 추적 번거로움 | Meta-Table: 처리 건수, 실행 시간, 성공 여부 자동 기록 및 관리 |
+
+---
+
+## 9. 빌드 & 실행
 
 ### 로컬 실행
 
